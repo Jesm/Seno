@@ -3,66 +3,17 @@
 <head>
 	<meta charset="UTF-8">
 	<title>Seno</title>
-
-	<style>
-		*{
-			margin: 0;
-			padding: 0;
-		}
-		html, body, canvas{
-			width: 100%;
-			height: 100%;
-		}
-		canvas{
-			background: #333;
-		}
-	</style>
+	<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+	<main></main>
 
 	<script src="js/Jesm4.1.min.js"></script>
+	<script src="js/models.js"></script>
 	<script>
 		'use strict';
 
-		var App = {
-			clicks: [],
-
-			init: function(root){
-				var cvs = document.createElement('canvas');
-
-				this.ctxt = cvs.getContext('2d');
-				this.lastFrame = + new Date();
-
-				root.appendChild(cvs);
-				cvs.addEventListener('click', this.click.bind(this));
-
-				this.drawFrame();
-			},
-
-			click: function(ev){
-				this.clicks.push({
-					X: ev.clientX,
-					Y: ev.clientY
-				});
-			},
-
-			drawFrame:function(){
-				requestAnimationFrame(this.drawFrame.bind(this)); // Requests new frame
-
-				var now = + new Date(),
-					elapsedTime = now - this.lastFrame;
-				this.lastFrame = now;
-
-				for(var item of this.clicks){
-					// this.ctxt.drawCircle();
-				}
-
-				// document.body.innerHTML = now;
-			}
-		}
-
-		App.init(document.body);
-
+		new App(document.getElementsByTagName('main')[0]);
 	</script>
 </body>
 </html>
