@@ -43,36 +43,64 @@ var App = Jesm.createClass({
 	},
 
 	_click: function(ev){
-		this.click = new Dot(ev.clientX, ev.clientY);
+		this.click = new Dot(this, ev.clientX, ev.clientY);
 	}
 
 });
 
+App.getAsColorString = function(arr){
+	arr = arr.slice();
+	for(var len = arr.length; len--;)
+		arr[len] = len == 3 ? arr[len].toFixed(4) : Math.round(arr[len]);
+	return 'rgb' + (arr.length == 4 ? 'a' : '') + '(' + arr.join(',') + ')';
+};
+
 var AppElement = Jesm.createClass({
 
-	__construct: function(){
+	__construct: function(app){
 		// this.props = {};
-		this._modifiers = [];
+		this.app = app;
+		this._modifiers = {};
 	},
 
 	startModifier: function(str, toValue, duration){
 		var arr = str.split('.'),
-			easer = new Jesm.Easer(this._modifier(arr), toValue, duration);
+			currentValue = this._modifier(arr),
+			modifiers = [];
 
-		this._modifiers.push({
-			propArr: arr,
-			easer: easer.start()
-		});
+		if(Array.isArray(currentValue)){
+			var size = Math.min(currentValue.length, toValue.length);
+			for(var len = size; len--;){
+				var tmpArr = arr.slice();
+				tmpArr.push(len);
+				modifiers.push({
+					propArr: tmpArr,
+					easer: new Jesm.Easer(currentValue[len], toValue[len], duration).start()
+				});
+			}
+		}
+		else{
+			modifiers.push({
+				propArr: arr,
+				easer: new Jesm.Easer(currentValue, toValue, duration).start()
+			});
+		}
+
+		this._modifiers[str] = modifiers;
 	},
 
 	_calculateModifiers: function(timestamp){
-		for(var len = this._modifiers.length; len--;){
-			var mod = this._modifiers[len],
-				value = mod.easer.gerar(timestamp.now);
+		for(var key in this._modifiers){
+			var arr = this._modifiers[key];
 
-			this._modifier(mod.propArr, value);
-			if(mod.easer.isComplete())
-				this._modifiers.splice(len, 1);
+			for(var len = arr.length; len--;){
+				var mod = arr[len],
+					value = mod.easer.gerar(timestamp.now);
+
+				this._modifier(mod.propArr, value);
+				if(mod.easer.isComplete())
+					arr.splice(len, 1);
+			}
 		}
 	},
 
@@ -89,24 +117,23 @@ var AppElement = Jesm.createClass({
 
 var Dot = AppElement.extend({
 
-	__construct: function(x, y){
-		this._super();
+	__construct: function(app, x, y){
+		this._super(app);
 
 		this.x = x;
 		this.y = y;
 		this.diameter = 50;
+		this.background = [200, 100, 0, 1];
 
-		var self = this;
-		setTimeout(function(){
-			self.startModifier('x', self.x * 2, .5);
-			self.startModifier('diameter', self.diameter * 2, .5);
-		}, 2000);
+		// this.startModifier('x', this.x * 2, 3);
+		this.startModifier('diameter', this.diameter * 2, 3);
+		this.startModifier('background', [255, 255, 255, 0], 3);
 	},
 
 	draw: function(ctxt){
 		var path = new Path2D();
 		path.arc(this.x, this.y, this.diameter, 0, Math.PI * 2, true);
-		ctxt.fillStyle = '#0F0';
+		ctxt.fillStyle = App.getAsColorString(this.background);
 		ctxt.fill(path);
 	}
 
