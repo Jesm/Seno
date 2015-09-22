@@ -5,20 +5,18 @@ var App = Jesm.createClass({
 	__construct: function(root){
 		var cvs = document.createElement('canvas');
 
-		this.ctxt = cvs.getContext('2d');
-		this.timestamp = {
-			now: + new Date()
-		};
 		this.html = {
 			canvas: cvs
 		};
 
 		Jesm.addEvento(cvs, 'click', this._click, this);
-		Jesm.addEvento(window, 'resize', this._resize, this);
+		// Jesm.addEvento(window, 'resize', this._resize, this);
+		this._resize();
 		root.appendChild(cvs);
 
-		this._resize();
-		this.drawFrame();
+		AppElement.startOn(cvs);
+
+		// this.startGame();
 	},
 
 	_resize: function(){
@@ -27,23 +25,8 @@ var App = Jesm.createClass({
 		cvs.height = size[1];
 	},
 
-	drawFrame:function(){
-		requestAnimationFrame(this.drawFrame.bind(this)); // Requests new frame
-
-		var now = + new Date();
-		this.timestamp.elapsedTime = now - this.timestamp.now;
-		this.timestamp.now = now;
-
-		this.ctxt.clearRect(0, 0, this.html.canvas.width, this.html.canvas.height);
-
-		if(this.click){
-			this.click._calculateModifiers(this.timestamp);
-			this.click.draw(this.ctxt);
-		}
-	},
-
 	_click: function(ev){
-		this.click = new Dot(this, ev.clientX, ev.clientY);
+		new Dot(this, ev.clientX, ev.clientY);
 	}
 
 });
@@ -58,9 +41,11 @@ App.getAsColorString = function(arr){
 var AppElement = Jesm.createClass({
 
 	__construct: function(app){
-		// this.props = {};
 		this.app = app;
 		this._modifiers = {};
+		this.zIndex = 1;
+
+		AppElement.addInstance(this);
 	},
 
 	startModifier: function(str, toValue, duration){
@@ -114,6 +99,53 @@ var AppElement = Jesm.createClass({
 	}
 
 });
+
+AppElement._instances = [];
+
+AppElement.addInstance = function(obj){
+	for(var x = 0, len = this._instances.length; x < len; x++){
+		var element = this._instances[x];
+		if(element.zIndex > obj.zIndex){
+			this._instances.splice(x, 0, obj);
+			return;
+		}
+	}
+
+	this._instances.push(obj);
+};
+
+AppElement.startOn = function(canvas){
+	this._canvas = canvas;
+	this._ctxt = canvas.getContext('2d');
+
+	this.timestamp = {
+		now: + new Date()
+	};
+
+	this.render();
+}
+
+AppElement._sortElements = function(a, b){
+	return a.zIndex - b.zIndex;
+}
+
+AppElement.render = function(){
+	requestAnimationFrame(this.render.bind(this)); // Requests new frame
+
+	var now = + new Date();
+	this.timestamp.elapsedTime = now - this.timestamp.now;
+	this.timestamp.now = now;
+
+	this._ctxt.clearRect(0, 0, this._canvas.width, this._canvas.height);
+	this._instances.sort(this._sortElements);
+
+	for(var x = 0, len = this._instances.length; x < len; x++){
+		var element = this._instances[x];
+		element._calculateModifiers(this.timestamp);
+		element.draw(this._ctxt);
+	}
+}
+
 
 var Dot = AppElement.extend({
 
