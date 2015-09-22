@@ -44,6 +44,7 @@ var AppElement = Jesm.createClass({
 		this.app = app;
 		this._modifiers = {};
 		this.zIndex = 1;
+		this._deleteInNextFrame = false;
 
 		AppElement.addInstance(this);
 	},
@@ -96,6 +97,10 @@ var AppElement = Jesm.createClass({
 		if(value != null)
 			obj[arr[index]] = value;
 		return obj[arr[index]];
+	},
+
+	removeFromCanvas: function(){
+		this._deleteInNextFrame = true;
 	}
 
 });
@@ -105,7 +110,7 @@ AppElement._instances = [];
 AppElement.addInstance = function(obj){
 	for(var x = 0, len = this._instances.length; x < len; x++){
 		var element = this._instances[x];
-		if(element.zIndex > obj.zIndex){
+		if(element.zIndex < obj.zIndex){
 			this._instances.splice(x, 0, obj);
 			return;
 		}
@@ -126,7 +131,7 @@ AppElement.startOn = function(canvas){
 }
 
 AppElement._sortElements = function(a, b){
-	return a.zIndex - b.zIndex;
+	return b.zIndex - a.zIndex;
 }
 
 AppElement.render = function(){
@@ -139,8 +144,14 @@ AppElement.render = function(){
 	this._ctxt.clearRect(0, 0, this._canvas.width, this._canvas.height);
 	this._instances.sort(this._sortElements);
 
-	for(var x = 0, len = this._instances.length; x < len; x++){
-		var element = this._instances[x];
+	for(var len = this._instances.length; len--;){
+		var element = this._instances[len];
+
+		if(element._deleteInNextFrame){
+			this._instances.splice(len, 1);
+			continue;
+		}
+
 		element._calculateModifiers(this.timestamp);
 		element.draw(this._ctxt);
 	}
