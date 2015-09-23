@@ -49,43 +49,56 @@ var AppElement = Jesm.createClass({
 		AppElement.addInstance(this);
 	},
 
-	startModifier: function(str, toValue, duration){
+	startModifier: function(str, toValue, duration, callback){
 		var arr = str.split('.'),
 			currentValue = this._modifier(arr),
-			modifiers = [];
+			obj = {
+				list: [],
+				callback: callback
+			};
 
 		if(Array.isArray(currentValue)){
 			var size = Math.min(currentValue.length, toValue.length);
 			for(var len = size; len--;){
 				var tmpArr = arr.slice();
 				tmpArr.push(len);
-				modifiers.push({
+				obj.list.push({
 					propArr: tmpArr,
 					easer: new Jesm.Easer(currentValue[len], toValue[len], duration).start()
 				});
 			}
 		}
 		else{
-			modifiers.push({
+			obj.list.push({
 				propArr: arr,
 				easer: new Jesm.Easer(currentValue, toValue, duration).start()
 			});
 		}
 
-		this._modifiers[str] = modifiers;
+		this._modifiers[str] = obj;
 	},
 
 	_calculateModifiers: function(timestamp){
 		for(var key in this._modifiers){
-			var arr = this._modifiers[key];
+			var obj = this._modifiers[key],
+				arr = obj.list,
+				toEnd = arr.length;
 
 			for(var len = arr.length; len--;){
 				var mod = arr[len],
 					value = mod.easer.gerar(timestamp.now);
 
 				this._modifier(mod.propArr, value);
-				if(mod.easer.isComplete())
+				if(mod.easer.isComplete()){
 					arr.splice(len, 1);
+					toEnd--;
+				}
+			}
+
+			if(!toEnd){
+				delete this._modifiers[key];
+				if(Jesm.isFunction(obj.callback))
+					obj.callback.call(this);
 			}
 		}
 	},
@@ -170,7 +183,7 @@ var Dot = AppElement.extend({
 
 		// this.startModifier('x', this.x * 2, 3);
 		this.startModifier('diameter', this.diameter * 2, 3);
-		this.startModifier('background', [255, 255, 255, 0], 3);
+		this.startModifier('background', [255, 255, 255, 0], 3, this.removeFromCanvas);
 	},
 
 	draw: function(ctxt){
