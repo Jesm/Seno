@@ -3,33 +3,49 @@
 var App = Jesm.createClass({
 
 	__construct: function(root){
-		var cvs = document.createElement('canvas');
+		this.state = App.states.INITIALIZED;
+		this.stages = [];
 
+		var cvs = document.createElement('canvas');
 		this.html = {
 			canvas: cvs
 		};
 
-		Jesm.addEvento(cvs, 'click', this._click, this);
 		// Jesm.addEvento(window, 'resize', this._resize, this);
 		this._resize();
 		root.appendChild(cvs);
 
 		AppElement.startOn(cvs);
-
-		// this.startGame();
 	},
 
 	_resize: function(){
-		var size = Jesm.Cross.inner(), cvs = this.html.canvas;
-		cvs.width = size[0];
-		cvs.height = size[1];
+		this.canvasSize = Jesm.Cross.inner();
+		this.html.canvas.width = this.canvasSize[0];
+		this.html.canvas.height = this.canvasSize[1];
 	},
 
-	_click: function(ev){
-		new Dot(this, ev.clientX, ev.clientY);
+	addStage: function(obj){
+		this.stages.push(obj);
+	},
+
+	start: function(){
+		if(!this.stages.length)
+			throw 'There is no stage to play!';
+
+		this.state = App.states.PLAYING;
+		this.currentStageIndex = 0;
+		this.loadStage(this.stages[this.currentStageIndex]);
+	},
+
+	loadStage: function(obj){
 	}
 
 });
+
+App.states = {
+	INITIALIZED: 1,
+	PLAYING: 2
+};
 
 App.getAsColorString = function(arr){
 	arr = arr.slice();
@@ -48,6 +64,8 @@ var AppElement = Jesm.createClass({
 
 		AppElement.addInstance(this);
 	},
+
+	// Modifiers related methods
 
 	startModifier: function(str, toValue, duration, callback){
 		var arr = str.split('.'),
@@ -112,6 +130,8 @@ var AppElement = Jesm.createClass({
 		return obj[arr[index]];
 	},
 
+	// Miscellaneous methods
+
 	removeFromCanvas: function(){
 		this._deleteInNextFrame = true;
 	}
@@ -136,11 +156,28 @@ AppElement.startOn = function(canvas){
 	this._canvas = canvas;
 	this._ctxt = canvas.getContext('2d');
 
+	Jesm.addEvento(canvas, 'click', this._processClick, this);
+
 	this.timestamp = {
 		now: + new Date()
 	};
 
 	this.render();
+}
+
+AppElement._processClick = function(ev){
+	var coordinates = Jesm.Cross.getMouse(ev);
+
+	for(var len = this._instances.length; len--;){
+		var element = this._instances[len];
+
+		if(element.contains(coordinates) && Jesm.isFunction(element.processClick)){
+			element.processClick(coordinates);
+			return;
+		}
+	}
+
+	new Dot(null, ev.clientX, ev.clientY); // For test only
 }
 
 AppElement._sortElements = function(a, b){
@@ -170,20 +207,30 @@ AppElement.render = function(){
 	}
 }
 
-
-var Dot = AppElement.extend({
+var AppCircle = AppElement.extend({
 
 	__construct: function(app, x, y){
 		this._super(app);
 
-		this.x = x;
-		this.y = y;
-		this.diameter = 50;
-		this.background = [200, 100, 0, 1];
+		this.x = x || 0;
+		this.y = y || 0;
+		this.diameter = 10;
+		this.background = [255, 255, 255, 1];
+	},
 
-		// this.startModifier('x', this.x * 2, 3);
-		this.startModifier('diameter', this.diameter * 2, 3);
-		this.startModifier('background', [255, 255, 255, 0], 3, this.removeFromCanvas);
+	// Geometric methods
+
+	contains: function(coordinates){
+		return this.distanceTo(coordinates) < 0;
+	},
+
+	distanceTo: function(coordinates){
+		var distance = Math.sqrt(
+			Math.pow(this.x - coordinates[0], 2) +
+			Math.pow(this.y - coordinates[1], 2)
+		);
+		distance -= this.diameter / 2;
+		return distance;
 	},
 
 	draw: function(ctxt){
@@ -191,6 +238,21 @@ var Dot = AppElement.extend({
 		path.arc(this.x, this.y, this.diameter, 0, Math.PI * 2, true);
 		ctxt.fillStyle = App.getAsColorString(this.background);
 		ctxt.fill(path);
+	}
+
+});
+
+var Dot = AppCircle.extend({
+
+	__construct: function(app, x, y){
+		this._super.apply(this, arguments);
+
+		this.diameter = 50;
+		this.background = [200, 100, 0, 1];
+
+		// this.startModifier('x', this.x * 2, 3);
+		this.startModifier('diameter', this.diameter * 2, 3);
+		this.startModifier('background', [255, 255, 255, 0], 3, this.removeFromCanvas);
 	}
 
 });
