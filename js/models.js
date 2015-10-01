@@ -2,7 +2,7 @@
 
 var App = Jesm.createClass({
 
-	__construct: function(root){
+	__construct: function(container){
 		this.state = App.states.INITIALIZED;
 		this.stages = [];
 
@@ -13,9 +13,10 @@ var App = Jesm.createClass({
 
 		// Jesm.addEvento(window, 'resize', this._resize, this);
 		this._resize();
-		root.appendChild(cvs);
+		container.appendChild(cvs);
 
-		AppElement.startOn(cvs);
+		this.world = new AppWorld(this, cvs);
+		this.world.start();
 	},
 
 	_resize: function(){
@@ -54,15 +55,91 @@ App.getAsColorString = function(arr){
 	return 'rgb' + (arr.length == 4 ? 'a' : '') + '(' + arr.join(',') + ')';
 };
 
+var AppWorld = Jesm.createClass({
+
+	__construct: function(app, canvas){
+		this.app = app;
+		this.elements = [];
+
+		this._canvas = canvas;
+		this._ctxt = canvas.getContext('2d');
+	},
+
+	start: function(){
+		Jesm.addEvento(this._canvas, 'click', this._processClick, this);
+
+		this.timestamp = {
+			now: + new Date()
+		};
+
+		this.render();
+	},
+
+	addElement: function(obj){
+		for(var x = 0, len = this.elements.length; x < len; x++){
+			var element = this.elements[x];
+			if(element.zIndex < obj.zIndex){
+				this.elements.splice(x, 0, obj);
+				return;
+			}
+		}
+
+		this.elements.push(obj);
+	},
+
+	_processClick: function(ev){
+		var coordinates = Jesm.Cross.getMouse(ev);
+
+		for(var len = this.elements.length; len--;){
+			var element = this.elements[len];
+
+			if(Jesm.isFunction(element.processClick) && element.contains(coordinates)){
+				element.processClick(coordinates);
+				return;
+			}
+		}
+
+		new Dot(this, ev.clientX, ev.clientY); // For test only
+	},
+
+	_sortElements: function(a, b){
+		return b.zIndex - a.zIndex;
+	},
+
+	render: function(){
+		requestAnimationFrame(this.render.bind(this)); // Requests new frame
+
+		var now = + new Date();
+		this.timestamp.elapsedTime = now - this.timestamp.now;
+		this.timestamp.now = now;
+
+		this._ctxt.clearRect(0, 0, this._canvas.width, this._canvas.height);
+		this.elements.sort(this._sortElements);
+
+		for(var len = this.elements.length; len--;){
+			var element = this.elements[len];
+
+			if(element._deleteInNextFrame){
+				this.elements.splice(len, 1);
+				continue;
+			}
+
+			element._calculateModifiers(this.timestamp);
+			element.draw(this._ctxt);
+		}
+	}
+
+});
+
 var AppElement = Jesm.createClass({
 
-	__construct: function(app){
-		this.app = app;
+	__construct: function(world){
+		this.world = world;
 		this._modifiers = {};
 		this.zIndex = 1;
 		this._deleteInNextFrame = false;
 
-		AppElement.addInstance(this);
+		this.world.addElement(this);
 	},
 
 	// Modifiers related methods
@@ -138,79 +215,10 @@ var AppElement = Jesm.createClass({
 
 });
 
-AppElement._instances = [];
-
-AppElement.addInstance = function(obj){
-	for(var x = 0, len = this._instances.length; x < len; x++){
-		var element = this._instances[x];
-		if(element.zIndex < obj.zIndex){
-			this._instances.splice(x, 0, obj);
-			return;
-		}
-	}
-
-	this._instances.push(obj);
-};
-
-AppElement.startOn = function(canvas){
-	this._canvas = canvas;
-	this._ctxt = canvas.getContext('2d');
-
-	Jesm.addEvento(canvas, 'click', this._processClick, this);
-
-	this.timestamp = {
-		now: + new Date()
-	};
-
-	this.render();
-}
-
-AppElement._processClick = function(ev){
-	var coordinates = Jesm.Cross.getMouse(ev);
-
-	for(var len = this._instances.length; len--;){
-		var element = this._instances[len];
-
-		if(element.contains(coordinates) && Jesm.isFunction(element.processClick)){
-			element.processClick(coordinates);
-			return;
-		}
-	}
-
-	new Dot(null, ev.clientX, ev.clientY); // For test only
-}
-
-AppElement._sortElements = function(a, b){
-	return b.zIndex - a.zIndex;
-}
-
-AppElement.render = function(){
-	requestAnimationFrame(this.render.bind(this)); // Requests new frame
-
-	var now = + new Date();
-	this.timestamp.elapsedTime = now - this.timestamp.now;
-	this.timestamp.now = now;
-
-	this._ctxt.clearRect(0, 0, this._canvas.width, this._canvas.height);
-	this._instances.sort(this._sortElements);
-
-	for(var len = this._instances.length; len--;){
-		var element = this._instances[len];
-
-		if(element._deleteInNextFrame){
-			this._instances.splice(len, 1);
-			continue;
-		}
-
-		element._calculateModifiers(this.timestamp);
-		element.draw(this._ctxt);
-	}
-}
-
 var AppCircle = AppElement.extend({
 
-	__construct: function(app, x, y){
-		this._super(app);
+	__construct: function(world, x, y){
+		this._super(world);
 
 		this.x = x || 0;
 		this.y = y || 0;
@@ -244,7 +252,7 @@ var AppCircle = AppElement.extend({
 
 var Dot = AppCircle.extend({
 
-	__construct: function(app, x, y){
+	__construct: function(world, x, y){
 		this._super.apply(this, arguments);
 
 		this.diameter = 50;
