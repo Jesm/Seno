@@ -106,8 +106,6 @@ var AppWorld = Jesm.createClass({
 				return;
 			}
 		}
-
-		new Dot(this, ev.clientX, ev.clientY); // For test only
 	},
 
 	_sortElements: function(a, b){
