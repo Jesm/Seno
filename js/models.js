@@ -39,6 +39,14 @@ var App = Jesm.createClass({
 	},
 
 	loadStage: function(obj){
+		var size = this.canvasSize,
+			minorSize = Math.min.apply(Math, size);
+
+		var mainCircle = new CentralCircle(this.world, size[0] / 2, size[1] / 2);
+		mainCircle.diameter = minorSize * obj.mainCircleDiameter;
+		if('mainCircleColor' in obj)
+			mainCircle.background = obj.mainCircleColor;
+		mainCircle.display();
 	}
 
 });
@@ -244,23 +252,28 @@ var AppCircle = AppElement.extend({
 	draw: function(ctxt){
 		var path = new Path2D();
 		path.arc(this.x, this.y, this.diameter, 0, Math.PI * 2, true);
-		ctxt.fillStyle = App.getAsColorString(this.background);
+		ctxt.fillStyle = Array.isArray(this.background) ? App.getAsColorString(this.background) : this.background;
 		ctxt.fill(path);
 	}
 
 });
 
-var Dot = AppCircle.extend({
+var CentralCircle = AppCircle.extend({
 
 	__construct: function(world, x, y){
 		this._super.apply(this, arguments);
+		this.ready = false;
+	},
 
-		this.diameter = 50;
-		this.background = [200, 100, 0, 1];
+	display: function(){
+		var finalDiameter = this.diameter;
+		this.diameter = 0;
 
-		// this.startModifier('x', this.x * 2, 3);
-		this.startModifier('diameter', this.diameter * 2, 3);
-		this.startModifier('background', [255, 255, 255, 0], 3, this.removeFromCanvas);
+		this.startModifier('diameter', finalDiameter, 1, this._getReady);
+	},
+
+	_getReady: function(){
+		this.ready = true;
 	}
 
 });
