@@ -2,10 +2,11 @@
 	margin: 0;
 	padding: 0;
 }
-html, body, canvas{
+html, body, main{
 	width: 100%;
 	height: 100%;
 }
 canvas{
+	display: block;
 	background: #333;
 }
