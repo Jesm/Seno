@@ -42,11 +42,10 @@ var App = Jesm.createClass({
 		var size = this.canvasSize,
 			minorSize = Math.min.apply(Math, size);
 
-		var mainCircle = new CentralCircle(this.world, size[0] / 2, size[1] / 2);
-		mainCircle.diameter = minorSize * obj.mainCircleDiameter;
-		if('mainCircleColor' in obj)
-			mainCircle.background = obj.mainCircleColor;
-		mainCircle.display();
+		var mainCircle = new CentralCircle(this.world, size[0] / 2, size[1] / 2, {
+			diameter: minorSize * obj.mainCircleDiameter,
+			background: obj.mainCircleColor
+		});
 	}
 
 });
@@ -86,7 +85,7 @@ var AppWorld = Jesm.createClass({
 	addElement: function(obj){
 		for(var x = 0, len = this.elements.length; x < len; x++){
 			var element = this.elements[x];
-			if(element.zIndex < obj.zIndex){
+			if(obj.zIndex >= element.zIndex){
 				this.elements.splice(x, 0, obj);
 				return;
 			}
@@ -258,20 +257,38 @@ var AppCircle = AppElement.extend({
 
 var CentralCircle = AppCircle.extend({
 
-	__construct: function(world, x, y){
+	__construct: function(world, x, y, obj){
 		this._super.apply(this, arguments);
+
 		this.ready = false;
-	},
+		this.projectiles = [];
 
-	display: function(){
-		var finalDiameter = this.diameter;
 		this.diameter = 0;
+		if('background' in obj)
+			this.background = obj.background;
 
-		this.startModifier('diameter', finalDiameter, 1, this._getReady);
+		this.startModifier('diameter', obj.diameter, 1, this._getReady);
 	},
 
 	_getReady: function(){
 		this.ready = true;
+	},
+
+	processClick: function(position){
+		if(!this.ready)
+			return;
+
+		var projectile = new Projectile(this.world, position[0], position[1]);
+
+		this.projectiles.push(projectile);
 	}
+
+});
+
+var Projectile = AppCircle.extend({
+
+	// __construct: function(){
+	// 	this._super.apply(this, arguments);
+	// }
 
 });
