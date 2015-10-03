@@ -43,7 +43,7 @@ var App = Jesm.createClass({
 			minorSize = Math.min.apply(Math, size);
 
 		var mainCircle = new CentralCircle(this.world, size[0] / 2, size[1] / 2, {
-			diameter: minorSize * obj.mainCircleDiameter,
+			radius: minorSize * obj.mainCircleRadius,
 			background: obj.mainCircleColor
 		});
 	}
@@ -227,7 +227,7 @@ var AppCircle = AppElement.extend({
 
 		this.x = x || 0;
 		this.y = y || 0;
-		this.diameter = 10;
+		this.radius = 5;
 		this.background = [255, 255, 255, 1];
 	},
 
@@ -242,13 +242,13 @@ var AppCircle = AppElement.extend({
 			Math.pow(this.x - coordinates[0], 2) +
 			Math.pow(this.y - coordinates[1], 2)
 		);
-		distance -= this.diameter / 2;
+		distance -= this.radius;
 		return distance;
 	},
 
 	draw: function(ctxt){
 		var path = new Path2D();
-		path.arc(this.x, this.y, this.diameter, 0, Math.PI * 2, true);
+		path.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
 		ctxt.fillStyle = Array.isArray(this.background) ? App.getAsColorString(this.background) : this.background;
 		ctxt.fill(path);
 	}
@@ -263,11 +263,11 @@ var CentralCircle = AppCircle.extend({
 		this.ready = false;
 		this.projectiles = [];
 
-		this.diameter = 0;
+		this.radius = 0;
 		if('background' in obj)
 			this.background = obj.background;
 
-		this.startModifier('diameter', obj.diameter, 1, this._getReady);
+		this.startModifier('radius', obj.radius, 1, this._getReady);
 	},
 
 	_getReady: function(){
