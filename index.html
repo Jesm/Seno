@@ -16,8 +16,13 @@
 		(function(){
 			var app = new App(document.getElementsByTagName('main')[0]);
 			app.addStage({
+				counterDuration: 5,
+				targetQuantity: 2,
 				mainCircleRadius: .2,
-				mainCircleColor: '#FFA600'
+				mainCircleColor: '#FFA600',
+				mainCircleTextColor: '#5D461C',
+				mainCircleTextFontSize: 124,
+				mainCircleTextFontFamily: 'sans-serif'
 			});
 			app.start();
 		})();

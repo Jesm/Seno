@@ -38,14 +38,51 @@ var App = Jesm.createClass({
 		this.loadStage(this.stages[this.currentStageIndex]);
 	},
 
-	loadStage: function(obj){
+	loadStage: function(params){
+		this.currentStageParams = params;
+
 		var size = this.canvasSize,
 			minorSize = Math.min.apply(Math, size);
 
-		var mainCircle = new CentralCircle(this.world, size[0] / 2, size[1] / 2, {
-			radius: minorSize * obj.mainCircleRadius,
-			background: obj.mainCircleColor
+		this.currentMainCircle = new CentralCircle(this.world, size[0] / 2, size[1] / 2, {
+			radius: minorSize * params.mainCircleRadius,
+			background: params.mainCircleColor,
+			textColor: params.mainCircleTextColor,
+			textFontSize: params.mainCircleTextFontSize,
+			textFontFamily: params.mainCircleTextFontFamily
 		});
+
+		setTimeout(this.startCounter.bind(this), 1100);
+	},
+
+	startCounter: function(){
+		this.generateTargets();
+
+		setTimeout(this.startStage.bind(this), 600);
+	},
+
+	generateTargets: function(){
+
+	},
+
+	startStage: function(){
+		this.stageCounter = this.currentStageParams.counterDuration;
+		this.currentMainCircle.setCounter(this.stageCounter);
+		this.currentMainCircle.allowProjectilePlacement();
+		this.counterIntervalRef = setInterval(this.updateCounter.bind(this), 1000);
+	},
+
+	updateCounter: function(){
+		this.currentMainCircle.setCounter(--this.stageCounter);
+		if(this.stageCounter <= 0)
+			this.throwProjectiles();
+	},
+
+	getProjectilePlacement: function(projectile){
+	},
+
+	throwProjectiles: function(){
+		clearInterval(this.counterIntervalRef);
 	}
 
 });
@@ -267,6 +304,12 @@ var CentralCircle = AppCircle.extend({
 		if('background' in obj)
 			this.background = obj.background;
 
+		this.textColor = obj.textColor;
+		this.textFontSize = obj.textFontSize;
+		this.textFontFamily = obj.textFontFamily;
+
+		this.createProjectiles = false;
+
 		this.startModifier('radius', obj.radius, 1, this._getReady);
 	},
 
@@ -275,12 +318,35 @@ var CentralCircle = AppCircle.extend({
 	},
 
 	processClick: function(position){
-		if(!this.ready)
+		if(!this.ready && this.createProjectiles)
 			return;
 
 		var projectile = new Projectile(this.world, position[0], position[1]);
 
 		this.projectiles.push(projectile);
+	},
+
+	allowProjectilePlacement: function(){
+		this.createProjectiles = true;
+	},
+
+	setCounter: function(value){
+		this.counterValue = value;
+	},
+
+	draw: function(ctxt){
+		this._super.apply(this, arguments);
+
+		if(this.counterValue != null){
+			ctxt.fillStyle = this.textColor;
+			ctxt.font = this.textFontSize + 'px ' + this.textFontFamily;
+			ctxt.textBaseline = 'middle';
+
+			var str = this.counterValue,
+				metrics = ctxt.measureText(str);
+
+			ctxt.fillText(str, Math.round(this.x - metrics.width / 2), this.y);
+		}
 	}
 
 });
