@@ -48,6 +48,8 @@ var App = Jesm.createClass({
 		this.targetRadius = minorSize * params.targetRadius;
 
 		this.targets = [];
+		this.projectiles = [];
+		this.projectileQuantityLeft = null;
 
 		this.currentMainCircle = new CentralCircle(this.world, size[0] / 2, size[1] / 2, {
 			radius: this.mainCircleRadius,
@@ -56,6 +58,8 @@ var App = Jesm.createClass({
 			textFontSize: params.mainCircleTextFontSize,
 			textFontFamily: params.mainCircleTextFontFamily
 		});
+
+		this.currentMainCircle.processClick = this.createProjectile.bind(this);
 
 		setTimeout(this.startCounter.bind(this), 700);
 	},
@@ -121,8 +125,20 @@ var App = Jesm.createClass({
 	startStage: function(){
 		this.stageCounter = this.currentStageParams.counterDuration;
 		this.currentMainCircle.setCounter(this.stageCounter);
-		this.currentMainCircle.allowProjectilePlacement();
+		this.projectileQuantityLeft = this.currentStageParams.targetQuantity;
 		this.counterIntervalRef = setInterval(this.updateCounter.bind(this), 1000);
+	},
+
+	createProjectile: function(position){
+		if(!this.projectileQuantityLeft)
+			return;
+
+		var projectile = new Projectile(this.world, position[0], position[1]);
+		this.projectiles.push(projectile);
+
+		this.projectileQuantityLeft--;
+		if(!this.projectileQuantityLeft)
+			this.throwProjectiles();
 	},
 
 	updateCounter: function(){
@@ -131,11 +147,11 @@ var App = Jesm.createClass({
 			this.throwProjectiles();
 	},
 
-	getProjectilePlacement: function(projectile){
-	},
-
 	throwProjectiles: function(){
 		clearInterval(this.counterIntervalRef);
+		this.projectileQuantityLeft = null;
+
+		console.log('THROW!!');
 	}
 
 });
@@ -356,9 +372,6 @@ var CentralCircle = AppCircle.extend({
 	__construct: function(world, x, y, obj){
 		this._super.apply(this, arguments);
 
-		this.ready = false;
-		this.projectiles = [];
-
 		this.radius = 0;
 		if('background' in obj)
 			this.background = obj.background;
@@ -367,26 +380,7 @@ var CentralCircle = AppCircle.extend({
 		this.textFontSize = obj.textFontSize;
 		this.textFontFamily = obj.textFontFamily;
 
-		this.createProjectiles = false;
-
-		this.startModifier('radius', obj.radius, 1, this._getReady);
-	},
-
-	_getReady: function(){
-		this.ready = true;
-	},
-
-	processClick: function(position){
-		if(!this.ready && this.createProjectiles)
-			return;
-
-		var projectile = new Projectile(this.world, position[0], position[1]);
-
-		this.projectiles.push(projectile);
-	},
-
-	allowProjectilePlacement: function(){
-		this.createProjectiles = true;
+		this.startModifier('radius', obj.radius, 1);
 	},
 
 	setCounter: function(value){
