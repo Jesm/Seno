@@ -44,15 +44,20 @@ var App = Jesm.createClass({
 		var size = this.canvasSize,
 			minorSize = Math.min.apply(Math, size);
 
+		this.mainCircleRadius = minorSize * params.mainCircleRadius;
+		this.targetRadius = minorSize * params.targetRadius;
+
+		this.targets = [];
+
 		this.currentMainCircle = new CentralCircle(this.world, size[0] / 2, size[1] / 2, {
-			radius: minorSize * params.mainCircleRadius,
+			radius: this.mainCircleRadius,
 			background: params.mainCircleColor,
 			textColor: params.mainCircleTextColor,
 			textFontSize: params.mainCircleTextFontSize,
 			textFontFamily: params.mainCircleTextFontFamily
 		});
 
-		setTimeout(this.startCounter.bind(this), 1100);
+		setTimeout(this.startCounter.bind(this), 700);
 	},
 
 	startCounter: function(){
@@ -62,7 +67,55 @@ var App = Jesm.createClass({
 	},
 
 	generateTargets: function(){
+		for(var len = this.currentStageParams.targetQuantity; len--;)
+			this.createTarget();
+	},
 
+	createTarget: function(){
+		var radius = this.targetRadius,
+			diameter = 2 * radius,
+			circleCenter = this.currentMainCircle.getCenterAsArray(),
+			minDistanceCenter = this.mainCircleRadius * 1.2 + radius,
+			pos = [];
+
+		do{
+			for(var len = this.canvasSize.length; len--;)
+				pos[len] = Math.round((this.canvasSize[len] - diameter) * Math.random() + radius);
+
+			var totalDistance = App.distanceOfPoints(circleCenter, pos);
+			if(totalDistance < minDistanceCenter)
+				pos = this.getMinDistancePosition(circleCenter, pos, minDistanceCenter, totalDistance);
+
+			var conflicts = false;
+			for(var len = this.targets.length; len--;){
+				var target = this.targets[len];
+				if(App.distanceOfPoints(target.getCenterAsArray(), pos) < diameter){
+					conflicts = true;
+					break;
+				}
+			}
+		} while(conflicts);
+
+		var target = new Target(this.world, pos[0], pos[1], {
+			radius: radius
+		});
+		this.targets.push(target);
+	},
+
+	getMinDistancePosition: function(origin, currentPos, minDistance, currentDistance){
+		var strs = ['cos', 'sin'],
+			newPos = [];
+
+		for(var len = this.canvasSize.length; len--;){
+			var name = strs[len],
+				distance = currentPos[len] - origin[len],
+				angle = currentDistance ? distance / currentDistance : len,
+				radians = Math['a' + name](angle);
+
+			newPos[len] = origin[len] + Math[name](radians) * minDistance;
+		}
+
+		return newPos;
 	},
 
 	startStage: function(){
@@ -99,6 +152,13 @@ App.getAsColorString = function(arr){
 	return 'rgb' + (arr.length == 4 ? 'a' : '') + '(' + arr.join(',') + ')';
 };
 
+App.distanceOfPoints = function(pos1, pos2){
+	return Math.sqrt(
+		Math.pow(pos1[0] - pos2[0], 2) +
+		Math.pow(pos1[1] - pos2[1], 2)
+	);
+};
+
 var AppWorld = Jesm.createClass({
 
 	__construct: function(app, canvas){
@@ -110,7 +170,7 @@ var AppWorld = Jesm.createClass({
 	},
 
 	start: function(){
-		Jesm.addEvento(this._canvas, 'click', this._processClick, this);
+		Jesm.addEvento(this._canvas, 'mousedown', this._processClick, this);
 
 		this.timestamp = {
 			now: + new Date()
@@ -275,12 +335,11 @@ var AppCircle = AppElement.extend({
 	},
 
 	distanceTo: function(coordinates){
-		var distance = Math.sqrt(
-			Math.pow(this.x - coordinates[0], 2) +
-			Math.pow(this.y - coordinates[1], 2)
-		);
-		distance -= this.radius;
-		return distance;
+		return App.distanceOfPoints(this.getCenterAsArray(), coordinates) - this.radius;
+	},
+
+	getCenterAsArray: function(){
+		return [this.x, this.y];
 	},
 
 	draw: function(ctxt){
@@ -356,5 +415,17 @@ var Projectile = AppCircle.extend({
 	// __construct: function(){
 	// 	this._super.apply(this, arguments);
 	// }
+
+});
+
+var Target = AppCircle.extend({
+
+	__construct: function(world, x, y, params){
+		this._super.apply(this, arguments);
+
+		this.radius = 0;
+		this.background = [255, 255, 255];
+		this.startModifier('radius', params.radius, .5);
+	}
 
 });

@@ -14,17 +14,18 @@
 		'use strict';
 
 		(function(){
-			var app = new App(document.getElementsByTagName('main')[0]);
-			app.addStage({
+			window.Game = new App(document.getElementsByTagName('main')[0]);
+			window.Game.addStage({
 				counterDuration: 5,
 				targetQuantity: 2,
 				mainCircleRadius: .2,
+				targetRadius: .05,
 				mainCircleColor: '#FFA600',
 				mainCircleTextColor: '#5D461C',
 				mainCircleTextFontSize: 124,
 				mainCircleTextFontFamily: 'sans-serif'
 			});
-			app.start();
+			window.Game.start();
 		})();
 	</script>
 </body>
