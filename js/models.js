@@ -46,6 +46,8 @@ var App = Jesm.createClass({
 
 		this.mainCircleRadius = minorSize * params.mainCircleRadius;
 		this.targetRadius = minorSize * params.targetRadius;
+		this.projectileRadius = minorSize * params.projectileRadius;
+		this.projectileVelocity = minorSize * params.projectileVelocity;
 
 		this.targets = [];
 		this.projectiles = [];
@@ -80,15 +82,20 @@ var App = Jesm.createClass({
 			diameter = 2 * radius,
 			circleCenter = this.currentMainCircle.getCenterAsArray(),
 			minDistanceCenter = this.mainCircleRadius * 1.2 + radius,
-			pos = [];
+			pos = [],
+			pointRadians;
 
 		do{
 			for(var len = this.canvasSize.length; len--;)
 				pos[len] = Math.round((this.canvasSize[len] - diameter) * Math.random() + radius);
 
 			var totalDistance = App.distanceOfPoints(circleCenter, pos);
-			if(totalDistance < minDistanceCenter)
-				pos = this.getMinDistancePosition(circleCenter, pos, minDistanceCenter, totalDistance);
+			pointRadians = App.getPointRadians(circleCenter, pos, totalDistance);
+
+			if(totalDistance < minDistanceCenter){
+				for(var len = this.canvasSize.length; len--;)
+					pos[len] = circleCenter[len] + pointRadians[len] * minDistanceCenter;
+			}
 
 			var conflicts = false;
 			for(var len = this.targets.length; len--;){
@@ -101,25 +108,10 @@ var App = Jesm.createClass({
 		} while(conflicts);
 
 		var target = new Target(this.world, pos[0], pos[1], {
+			pointRadians: pointRadians,
 			radius: radius
 		});
 		this.targets.push(target);
-	},
-
-	getMinDistancePosition: function(origin, currentPos, minDistance, currentDistance){
-		var strs = ['cos', 'sin'],
-			newPos = [];
-
-		for(var len = this.canvasSize.length; len--;){
-			var name = strs[len],
-				distance = currentPos[len] - origin[len],
-				angle = currentDistance ? distance / currentDistance : len,
-				radians = Math['a' + name](angle);
-
-			newPos[len] = origin[len] + Math[name](radians) * minDistance;
-		}
-
-		return newPos;
 	},
 
 	startStage: function(){
@@ -133,7 +125,9 @@ var App = Jesm.createClass({
 		if(!this.projectileQuantityLeft)
 			return;
 
-		var projectile = new Projectile(this.world, position[0], position[1]);
+		var projectile = new Projectile(this.world, position[0], position[1], {
+			radius: this.projectileRadius
+		});
 		this.projectiles.push(projectile);
 
 		this.projectileQuantityLeft--;
@@ -150,15 +144,48 @@ var App = Jesm.createClass({
 	throwProjectiles: function(){
 		clearInterval(this.counterIntervalRef);
 		this.projectileQuantityLeft = null;
+		this.currentMainCircle.setCounter();
 
-		console.log('THROW!!');
+		this.state = App.states.WAITING;
+		var center = this.currentMainCircle.getCenterAsArray();
+		for(var len = this.projectiles.length; len--;)
+			this.projectiles[len].throwAway(center, this.projectileVelocity);
+	},
+
+	verifyCollisions: function(){
+		for(var len = this.projectiles.length; len--;){
+			var projectile = this.projectiles[len];
+
+			for(var len1 = this.targets.length; len1--;){
+				var target = this.targets[len1];
+				if(projectile.distanceToCircle(target) < 0){
+					target.explode();
+					this.targets.splice(len1, 1);
+				}
+			}
+
+			if(projectile.isOutOfView()){
+				projectile.removeFromCanvas();
+				this.projectiles.splice(len, 1);
+			}
+		}
+
+		if(!this.projectiles.length)
+			this.verifyStageScore();
+	},
+
+	verifyStageScore: function(){
+		this.state = App.states.PLAYING;
+
+		alert('Targets left: ' + this.targets.length);
 	}
 
 });
 
 App.states = {
 	INITIALIZED: 1,
-	PLAYING: 2
+	PLAYING: 2,
+	WAITING: 3
 };
 
 App.getAsColorString = function(arr){
@@ -174,6 +201,22 @@ App.distanceOfPoints = function(pos1, pos2){
 		Math.pow(pos1[1] - pos2[1], 2)
 	);
 };
+
+App.getPointRadians = function(origin, currentPos, currentDistance){
+	var strs = ['cos', 'sin'],
+		arr = [];
+
+	for(var len = origin.length; len--;){
+		var name = strs[len],
+			distance = currentPos[len] - origin[len],
+			value = currentDistance ? distance / currentDistance : len,
+			radians = Math['a' + name](value);
+
+		arr[len] = Math[name](radians);
+	}
+
+	return arr;
+}
 
 var AppWorld = Jesm.createClass({
 
@@ -224,6 +267,10 @@ var AppWorld = Jesm.createClass({
 		return b.zIndex - a.zIndex;
 	},
 
+	getSize: function(){
+		return [this._canvas.width, this._canvas.height];
+	},
+
 	render: function(){
 		requestAnimationFrame(this.render.bind(this)); // Requests new frame
 
@@ -245,6 +292,9 @@ var AppWorld = Jesm.createClass({
 			element._calculateModifiers(this.timestamp);
 			element.draw(this._ctxt);
 		}
+
+		if(this.app.state === App.states.WAITING)
+			this.app.verifyCollisions();
 	}
 
 });
@@ -291,28 +341,74 @@ var AppElement = Jesm.createClass({
 		this._modifiers[str] = obj;
 	},
 
+	startPerpetualModifier: function(str, callback){
+		var arr = str.split('.'),
+			currentValue = this._modifier(arr),
+			obj = {
+				list: [],
+				callback: callback,
+				perpetual: true
+			};
+
+		if(Array.isArray(currentValue)){
+			var size = Math.min(currentValue.length, toValue.length);
+			for(var len = size; len--;){
+				var tmpArr = arr.slice();
+				tmpArr.push(len);
+				obj.list.push({
+					propArr: tmpArr
+				});
+			}
+		}
+		else{
+			obj.list.push({
+				propArr: arr
+			});
+		}
+
+		this._modifiers[str] = obj;
+	},
+
 	_calculateModifiers: function(timestamp){
 		for(var key in this._modifiers){
-			var obj = this._modifiers[key],
-				arr = obj.list,
-				toEnd = arr.length;
+			var name = this._modifiers[key].perpetual ? '_calculatePerpetualModifier' : '_calculateModifier';
+			this[name](timestamp, key);
+		}
+	},
 
-			for(var len = arr.length; len--;){
-				var mod = arr[len],
-					value = mod.easer.gerar(timestamp.now);
+	_calculateModifier: function(timestamp, key){
+		var obj = this._modifiers[key],
+			arr = obj.list,
+			toEnd = arr.length;
 
-				this._modifier(mod.propArr, value);
-				if(mod.easer.isComplete()){
-					arr.splice(len, 1);
-					toEnd--;
-				}
+		for(var len = arr.length; len--;){
+			var mod = arr[len],
+				value = mod.easer.gerar(timestamp.now);
+
+			this._modifier(mod.propArr, value);
+			if(mod.easer.isComplete()){
+				arr.splice(len, 1);
+				toEnd--;
 			}
+		}
 
-			if(!toEnd){
-				delete this._modifiers[key];
-				if(Jesm.isFunction(obj.callback))
-					obj.callback.call(this);
-			}
+		if(!toEnd){
+			delete this._modifiers[key];
+			if(Jesm.isFunction(obj.callback))
+				obj.callback.call(this);
+		}
+	},
+
+	_calculatePerpetualModifier: function(timestamp, key){
+		var obj = this._modifiers[key],
+			arr = obj.list;
+
+		for(var len = arr.length; len--;){
+			var mod = arr[len],
+				value = this._modifier(mod.propArr);
+
+			value = obj.callback.call(this, timestamp, value);
+			this._modifier(mod.propArr, value);
 		}
 	},
 
@@ -354,8 +450,26 @@ var AppCircle = AppElement.extend({
 		return App.distanceOfPoints(this.getCenterAsArray(), coordinates) - this.radius;
 	},
 
+	distanceToCircle: function(circle){
+		return this.distanceTo(circle.getCenterAsArray()) - circle.radius;
+	},
+
 	getCenterAsArray: function(){
 		return [this.x, this.y];
+	},
+
+	isOutOfView: function(){
+		var center = this.getCenterAsArray(),
+			size = this.world.getSize();
+
+		for(var len = center.length; len--;){
+			var middle = size[len] / 2;
+
+			if(Math.abs(center[len] - middle) >= middle + this.radius)
+				return true;
+		}
+
+		return false;
 	},
 
 	draw: function(ctxt){
@@ -406,9 +520,33 @@ var CentralCircle = AppCircle.extend({
 
 var Projectile = AppCircle.extend({
 
-	// __construct: function(){
-	// 	this._super.apply(this, arguments);
-	// }
+	__construct: function(world, x, y, params){
+		this._super.apply(this, arguments);
+
+		this.radius = params.radius;
+	},
+
+	throwAway: function(coordinates, velocity){
+		var center = this.getCenterAsArray(),
+			distance = App.distanceOfPoints(coordinates, center);
+
+		this.pointRadians = App.getPointRadians(coordinates, center, distance);
+		this.velocity = velocity;
+
+		this.startPerpetualModifier('x', this.moveXAxis);
+		this.startPerpetualModifier('y', this.moveYAxis);
+	},
+
+	moveXAxis: function(timestamp, value){
+		return this.moveAxis(timestamp, value, 0);
+	},
+	moveYAxis: function(timestamp, value){
+		return this.moveAxis(timestamp, value, 1);
+	},
+
+	moveAxis: function(timestamp, value, index){
+		return value + this.pointRadians[index] * this.velocity * timestamp.elapsedTime;
+	}
 
 });
 
@@ -418,8 +556,20 @@ var Target = AppCircle.extend({
 		this._super.apply(this, arguments);
 
 		this.radius = 0;
-		this.background = [255, 255, 255];
+		this.background = [255, 255, 255, 1];
 		this.startModifier('radius', params.radius, .5);
+	},
+
+	explode: function(){
+		this.destroy(this.radius * 3);
+	},
+	implode: function(){
+		this.destroy(this.radius / 3);
+	},
+
+	destroy: function(radius){
+		this.startModifier('radius', radius, .3);
+		this.startModifier('background', [255, 255, 255, 0], .3, this.removeFromCanvas);
 	}
 
 });
