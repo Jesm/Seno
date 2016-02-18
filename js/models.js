@@ -150,9 +150,8 @@ var App = Jesm.createClass({
 		var center = this.currentMainCircle.getCenterAsArray();
 		for(var len = this.projectiles.length; len--;){
 			var projectile = this.projectiles[len];
-			// projectile.throwAway(center, this.projectileVelocity);
-			var hitlist = projectile.getHitlistOf(center, this.targets);
-			debugger
+			projectile.throwAway(center, this.projectileVelocity);
+			// var hitlist = projectile.getHitlistOf(center, this.targets);
 		}
 	},
 
