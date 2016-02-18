@@ -2,9 +2,9 @@
 
 var App = Jesm.createClass({
 
-	__construct: function(container){
+	__construct: function(container, params){
 		this.state = App.states.INITIALIZED;
-		this.stages = [];
+		this._levelCount = 0;
 
 		var cvs = document.createElement('canvas');
 		this.html = {
@@ -15,7 +15,11 @@ var App = Jesm.createClass({
 		this._resize();
 		container.appendChild(cvs);
 
-		this.world = new AppWorld(this, cvs);
+		this.params = this.convertParams(params);
+
+		this.world = new AppWorld(this, cvs, {
+			background: this.params.backgroundColor
+		});
 		this.world.start();
 	},
 
@@ -23,39 +27,6 @@ var App = Jesm.createClass({
 		this.canvasSize = Jesm.Cross.inner();
 		this.html.canvas.width = this.canvasSize[0];
 		this.html.canvas.height = this.canvasSize[1];
-	},
-
-	addStage: function(obj){
-		this.stages.push(obj);
-	},
-
-	start: function(){
-		if(!this.stages.length)
-			throw 'There is no stage to play!';
-
-		this.state = App.states.PLAYING;
-		this.currentStageIndex = 0;
-		this.loadStage(this.stages[this.currentStageIndex]);
-	},
-
-	loadStage: function(params){
-		this.currentStageParams = this.convertParams(params);
-		this.targets = [];
-		this.projectiles = [];
-		this.projectileQuantityLeft = null;
-
-		var size = this.canvasSize;
-		this.currentMainCircle = new CentralCircle(this.world, size[0] / 2, size[1] / 2, {
-			radius: this.currentStageParams.mainCircleRadius,
-			background: this.currentStageParams.mainCircleColor,
-			textColor: this.currentStageParams.mainCircleTextColor,
-			textFontSize: this.currentStageParams.mainCircleTextFontSize,
-			textFontFamily: this.currentStageParams.mainCircleTextFontFamily
-		});
-
-		this.currentMainCircle.processClick = this.createProjectile.bind(this);
-
-		setTimeout(this.startCounter.bind(this), 700);
 	},
 
 	convertParams: function(params){
@@ -74,22 +45,72 @@ var App = Jesm.createClass({
 		return obj;
 	},
 
-	startCounter: function(){
-		this.generateTargets();
+	getNextLevel: function(){
+		this._levelCount++;
 
-		setTimeout(this.startStage.bind(this), 600);
+		var level = {};
+		for(var key in this.params)
+			level[key] = this.params[key];
+
+		level.number = this._levelCount;
+
+		return level;
 	},
 
-	generateTargets: function(){
-		for(var len = this.currentStageParams.targetQuantity; len--;)
-			this.createTarget();
+	start: function(){
+		if(this.state === App.states.PLAYING)
+			return;
+
+		this.state = App.states.PLAYING;
+
+		this.targets = [];
+		this.projectiles = [];
+		this.createMainCircle();
+
+		setTimeout((function(){
+			this.loadLevel(this.getNextLevel());
+		}).bind(this), 700);
 	},
 
-	createTarget: function(){
-		var radius = this.currentStageParams.targetRadius,
+	createMainCircle: function(){
+		var size = this.canvasSize;
+		this.mainCircle = new CentralCircle(this.world, size[0] / 2, size[1] / 2, {
+			radius: 0,
+			background: this.params.mainCircleColor,
+			textColor: this.params.mainCircleTextColor,
+			textFontSize: this.params.mainCircleTextFontSize,
+			textFontFamily: this.params.mainCircleTextFontFamily
+		});
+		this.mainCircle.processClick = this.createProjectile.bind(this);
+		this.mainCircle.modifyRadius(this.params.mainCircleRadius, 1);
+	},
+
+	loadLevel: function(level){
+		this.currentLevel = level;
+		this.projectileQuantityLeft = null;
+
+		if(level.number > 1){
+			// this.mainCircle.setText('Level ' + level.number);
+			this.mainCircle.modifyRadius(level.mainCircleRadius, .5);
+		}
+
+		this.generateTargets(level);
+
+		setTimeout((function(){
+			this.startCurrentLevel();
+		}).bind(this), 500);
+	},
+
+	generateTargets: function(level){
+		for(var len = level.targetQuantity; len--;)
+			this.createTarget(level);
+	},
+
+	createTarget: function(level){
+		var radius = level.targetRadius,
 			diameter = 2 * radius,
-			circleCenter = this.currentMainCircle.getCenterAsArray(),
-			minDistanceCenter = this.currentStageParams.mainCircleRadius * 1.2 + radius,
+			circleCenter = this.mainCircle.getCenterAsArray(),
+			minDistanceCenter = level.mainCircleRadius * 1.2 + radius,
 			pos = [],
 			pointRadians;
 
@@ -122,10 +143,10 @@ var App = Jesm.createClass({
 		this.targets.push(target);
 	},
 
-	startStage: function(){
-		this.stageCounter = this.currentStageParams.counterDuration;
-		this.currentMainCircle.setCounter(this.stageCounter);
-		this.projectileQuantityLeft = this.currentStageParams.targetQuantity;
+	startCurrentLevel: function(){
+		this.levelCounter = this.currentLevel.counterDuration;
+		this.mainCircle.setText(this.levelCounter);
+		this.projectileQuantityLeft = this.currentLevel.targetQuantity;
 		this.counterIntervalRef = setInterval(this.updateCounter.bind(this), 1000);
 	},
 
@@ -134,7 +155,7 @@ var App = Jesm.createClass({
 			return;
 
 		var projectile = new Projectile(this.world, position[0], position[1], {
-			radius: this.currentStageParams.projectileRadius
+			radius: this.currentLevel.projectileRadius
 		});
 		this.projectiles.push(projectile);
 
@@ -144,21 +165,20 @@ var App = Jesm.createClass({
 	},
 
 	updateCounter: function(){
-		this.currentMainCircle.setCounter(--this.stageCounter);
-		if(this.stageCounter <= 0)
+		this.mainCircle.setText(--this.levelCounter);
+		if(this.levelCounter <= 0)
 			this.throwProjectiles();
 	},
 
 	throwProjectiles: function(){
 		clearInterval(this.counterIntervalRef);
 		this.projectileQuantityLeft = null;
-		this.currentMainCircle.setCounter();
 
 		this.state = App.states.WAITING;
-		var center = this.currentMainCircle.getCenterAsArray();
+		var center = this.mainCircle.getCenterAsArray();
 		for(var len = this.projectiles.length; len--;){
 			var projectile = this.projectiles[len];
-			projectile.throwAway(center, this.currentStageParams.projectileVelocity);
+			projectile.throwAway(center, this.currentLevel.projectileVelocity);
 			// var hitlist = projectile.getHitlistOf(center, this.targets);
 		}
 	},
@@ -182,13 +202,24 @@ var App = Jesm.createClass({
 		}
 
 		if(!this.projectiles.length)
-			this.verifyStageScore();
+			this.endLevel();
 	},
 
-	verifyStageScore: function(){
+	endLevel: function(){
 		this.state = App.states.PLAYING;
 
-		alert('Targets left: ' + this.targets.length);
+		var level = this.targets.length ? this.currentLevel : this.getNextLevel();
+		this.unloadCurrentLevel();
+		this.loadLevel(level);
+	},
+
+	unloadCurrentLevel: function(){
+		for(;this.targets.length;){
+			var target = this.targets.pop();
+			target.implode();
+		}
+
+		delete this.currentLevel;
 	}
 
 });
@@ -231,12 +262,13 @@ App.getPointRadians = function(origin, currentPos, currentDistance){
 
 var AppWorld = Jesm.createClass({
 
-	__construct: function(app, canvas){
+	__construct: function(app, canvas, params){
 		this.app = app;
 		this.elements = [];
 
 		this._canvas = canvas;
 		this._ctxt = canvas.getContext('2d');
+		this.background = params.background;
 	},
 
 	start: function(){
@@ -289,7 +321,8 @@ var AppWorld = Jesm.createClass({
 		this.timestamp.elapsedTime = now - this.timestamp.now;
 		this.timestamp.now = now;
 
-		this._ctxt.clearRect(0, 0, this._canvas.width, this._canvas.height);
+		this._ctxt.fillStyle = this.background;
+		this._ctxt.fillRect(0, 0, this._canvas.width, this._canvas.height);
 		this.elements.sort(this._sortElements);
 
 		for(var len = this.elements.length; len--;){
@@ -497,18 +530,20 @@ var CentralCircle = AppCircle.extend({
 	__construct: function(world, x, y, obj){
 		this._super.apply(this, arguments);
 
-		this.radius = 0;
+		this.radius = obj.radius;
 		if('background' in obj)
 			this.background = obj.background;
 
 		this.textColor = obj.textColor;
 		this.textFontSize = obj.textFontSize;
 		this.textFontFamily = obj.textFontFamily;
-
-		this.startModifier('radius', obj.radius, 1);
 	},
 
-	setCounter: function(value){
+	modifyRadius: function(value, duration){
+		this.startModifier('radius', value, duration || 1);
+	},
+
+	setText: function(value){
 		this.counterValue = value;
 	},
 

@@ -14,21 +14,26 @@
 		'use strict';
 
 		(function(){
-			window.Game = new App(document.getElementsByTagName('main')[0]);
-			window.Game.addStage({
-				counterDuration: 5,
-				targetQuantity: 2,
-				projectileVelocity: 0.002, // Percentage of screen per millisecond
+			var main = document.getElementsByTagName('main')[0],
+				params = {
+					counterDuration: 5, // Seconds
+					targetQuantity: 2,
 
-				mainCircleRadius: .2,
-				targetRadius: .05,
-				projectileRadius: .009,
+					// The following block of parameters is calculated relative to the window minor axis magnitude
+					// For example, considering a window with the size of 400x200px, the value used would be of 200
+					mainCircleRadius: .2,
+					mainCircleTextFontSize: .24,
+					targetRadius: .05,
+					projectileRadius: .009,
+					projectileVelocity: 0.002, // Per millisecond
 
-				mainCircleTextFontSize: .24,
-				mainCircleColor: '#FFA600',
-				mainCircleTextColor: '#5D461C',
-				mainCircleTextFontFamily: 'sans-serif'
-			});
+					backgroundColor: '#333',
+					mainCircleColor: '#FFA600',
+					mainCircleTextColor: '#5D461C',
+					mainCircleTextFontFamily: 'sans-serif'
+				};
+
+			window.Game = new App(main, params);
 			window.Game.start();
 		})();
 	</script>
