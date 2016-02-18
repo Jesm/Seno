@@ -148,8 +148,12 @@ var App = Jesm.createClass({
 
 		this.state = App.states.WAITING;
 		var center = this.currentMainCircle.getCenterAsArray();
-		for(var len = this.projectiles.length; len--;)
-			this.projectiles[len].throwAway(center, this.projectileVelocity);
+		for(var len = this.projectiles.length; len--;){
+			var projectile = this.projectiles[len];
+			// projectile.throwAway(center, this.projectileVelocity);
+			var hitlist = projectile.getHitlistOf(center, this.targets);
+			debugger
+		}
 	},
 
 	verifyCollisions: function(){
@@ -535,6 +539,33 @@ var Projectile = AppCircle.extend({
 
 		this.startPerpetualModifier('x', this.moveXAxis);
 		this.startPerpetualModifier('y', this.moveYAxis);
+	},
+
+	getEquationOfRect: function(coordinates){
+		var center = this.getCenterAsArray(),
+			A = center[1] - coordinates[1],
+			B = coordinates[0] - center[0],
+			C = center[0] * coordinates[1] - center[1] * coordinates[0];
+
+		return [A, B, C];
+	},
+
+	getHitlistOf: function(coordinates, targets){
+		var arr = [],
+			equation = this.getEquationOfRect(coordinates);
+
+		for(var len = targets.length; len--;){
+			var target = targets[len],
+				targetCenter = target.getCenterAsArray(),
+				numerator = Math.abs(equation[0] * targetCenter[0] + equation[1] * targetCenter[1] + equation[2]),
+				denominator = Math.sqrt(Math.pow(equation[0], 2) + Math.pow(equation[1], 2)),
+				distance = numerator / denominator;
+
+			if(distance < this.radius + target.radius)
+				arr.push(target);
+		}
+
+		return arr;
 	},
 
 	moveXAxis: function(timestamp, value){
