@@ -39,31 +39,39 @@ var App = Jesm.createClass({
 	},
 
 	loadStage: function(params){
-		this.currentStageParams = params;
-
-		var size = this.canvasSize,
-			minorSize = Math.min.apply(Math, size);
-
-		this.mainCircleRadius = minorSize * params.mainCircleRadius;
-		this.targetRadius = minorSize * params.targetRadius;
-		this.projectileRadius = minorSize * params.projectileRadius;
-		this.projectileVelocity = minorSize * params.projectileVelocity;
-
+		this.currentStageParams = this.convertParams(params);
 		this.targets = [];
 		this.projectiles = [];
 		this.projectileQuantityLeft = null;
 
+		var size = this.canvasSize;
 		this.currentMainCircle = new CentralCircle(this.world, size[0] / 2, size[1] / 2, {
-			radius: this.mainCircleRadius,
-			background: params.mainCircleColor,
-			textColor: params.mainCircleTextColor,
-			textFontSize: params.mainCircleTextFontSize,
-			textFontFamily: params.mainCircleTextFontFamily
+			radius: this.currentStageParams.mainCircleRadius,
+			background: this.currentStageParams.mainCircleColor,
+			textColor: this.currentStageParams.mainCircleTextColor,
+			textFontSize: this.currentStageParams.mainCircleTextFontSize,
+			textFontFamily: this.currentStageParams.mainCircleTextFontFamily
 		});
 
 		this.currentMainCircle.processClick = this.createProjectile.bind(this);
 
 		setTimeout(this.startCounter.bind(this), 700);
+	},
+
+	convertParams: function(params){
+		var strs = [
+				'projectileVelocity',
+				'mainCircleRadius',
+				'targetRadius',
+				'projectileRadius',
+				'mainCircleTextFontSize'
+			],
+			obj = {},
+			minorSize = Math.min.apply(Math, this.canvasSize);
+
+		for(var key in params)
+			obj[key] = strs.indexOf(key) > -1 ? params[key] * minorSize : params[key];
+		return obj;
 	},
 
 	startCounter: function(){
@@ -78,10 +86,10 @@ var App = Jesm.createClass({
 	},
 
 	createTarget: function(){
-		var radius = this.targetRadius,
+		var radius = this.currentStageParams.targetRadius,
 			diameter = 2 * radius,
 			circleCenter = this.currentMainCircle.getCenterAsArray(),
-			minDistanceCenter = this.mainCircleRadius * 1.2 + radius,
+			minDistanceCenter = this.currentStageParams.mainCircleRadius * 1.2 + radius,
 			pos = [],
 			pointRadians;
 
@@ -126,7 +134,7 @@ var App = Jesm.createClass({
 			return;
 
 		var projectile = new Projectile(this.world, position[0], position[1], {
-			radius: this.projectileRadius
+			radius: this.currentStageParams.projectileRadius
 		});
 		this.projectiles.push(projectile);
 
@@ -150,7 +158,7 @@ var App = Jesm.createClass({
 		var center = this.currentMainCircle.getCenterAsArray();
 		for(var len = this.projectiles.length; len--;){
 			var projectile = this.projectiles[len];
-			projectile.throwAway(center, this.projectileVelocity);
+			projectile.throwAway(center, this.currentStageParams.projectileVelocity);
 			// var hitlist = projectile.getHitlistOf(center, this.targets);
 		}
 	},
