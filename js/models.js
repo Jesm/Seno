@@ -5,19 +5,37 @@ var App = Jesm.createClass({
 	__construct: function(container, params){
 		this.state = App.states.INITIALIZED;
 		this._levelCount = 0;
-
-		var cvs = document.createElement('canvas');
 		this.html = {
-			canvas: cvs
+			container: container
 		};
+		this._params = params;
+	},
+
+	start: function(){
+		this.prepareTitleScreen();
+		this.prepareGameWorld(this._params);
+		delete this._params;
+	},
+
+	prepareTitleScreen: function(container){
+		var html = this.html.container.innerHTML;
+		this.html.container.innerHTML = '';
+
+		this.html.titleScreen = Jesm.el('article', 'class=title-screen', this.html.container, html);
+		this.html.titleScreen.classList.add('show');
+		Jesm.addEvento(this.html.titleScreen, 'click', this.startGame, this);
+	},
+
+	prepareGameWorld: function(params){
+		this.html.canvas = document.createElement('canvas');
 
 		// Jesm.addEvento(window, 'resize', this._resize, this);
 		this._resize();
-		container.appendChild(cvs);
+		this.html.container.appendChild(this.html.canvas);
 
 		this.params = this.convertParams(params);
 
-		this.world = new AppWorld(this, cvs, {
+		this.world = new AppWorld(this, this.html.canvas, {
 			background: this.params.backgroundColor
 		});
 		this.world.start();
@@ -27,6 +45,27 @@ var App = Jesm.createClass({
 		this.canvasSize = Jesm.Cross.inner();
 		this.html.canvas.width = this.canvasSize[0];
 		this.html.canvas.height = this.canvasSize[1];
+	},
+
+	startGame: function(){
+		if(this.state === App.states.PLAYING)
+			return;
+
+		this.unloadTitleScreen();
+
+		this.state = App.states.PLAYING;
+
+		this.targets = [];
+		this.projectiles = [];
+		this.createMainCircle();
+
+		setTimeout((function(){
+			this.loadLevel(this.getNextLevel());
+		}).bind(this), 700);
+	},
+
+	unloadTitleScreen: function(){
+		this.html.titleScreen.classList.add('hide');
 	},
 
 	convertParams: function(params){
@@ -55,21 +94,6 @@ var App = Jesm.createClass({
 		level.number = this._levelCount;
 
 		return level;
-	},
-
-	start: function(){
-		if(this.state === App.states.PLAYING)
-			return;
-
-		this.state = App.states.PLAYING;
-
-		this.targets = [];
-		this.projectiles = [];
-		this.createMainCircle();
-
-		setTimeout((function(){
-			this.loadLevel(this.getNextLevel());
-		}).bind(this), 700);
 	},
 
 	createMainCircle: function(){

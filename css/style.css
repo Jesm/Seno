@@ -1,11 +1,91 @@
+@keyframes fade{
+	from{
+		opacity: 0;
+	}
+	to{
+		opacity: 1;
+	}
+}
+@keyframes translate-up{
+	from{
+		transform: translate(-50%, 50%);
+	}
+	to{
+		transform: translate(-50%, 0);
+	}
+}
+
+
 *{
 	margin: 0;
 	padding: 0;
 }
-html, body, main{
+html,
+body,
+main{
 	width: 100%;
 	height: 100%;
 }
+body{
+	font-family: 'Lucida Console';
+}
+main{
+	position: relative;
+	background-color: #333;
+	color: #FFF;
+}
 canvas{
 	display: block;
+}
+
+
+/* TITLE SCREEN STYLE */
+
+.title-screen{
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	text-align: center;
+	cursor: default;
+	transform: skew(0deg);
+}
+.title-screen.hide{
+	visibility: hidden;
+	transition: visibility 0s 1s;
+	animation: 1s fade reverse forwards;
+}
+
+.title-screen .title,
+.title-screen .description,
+.title-screen .start{
+	opacity: 0;
+}
+
+.title-screen .title{
+	position: absolute;
+	left: 50%;
+	bottom: 50%;
+	margin-bottom: 2px;
+	font-size: 5em;
+	line-height: 1;
+	font-weight: bold;
+	transform: translate(-50%, 50%);
+}
+.title-screen.show .title{
+	animation: 3s ease-in .1s fade forwards, 1s 3.1s translate-up forwards;
+}
+.title-screen .description{
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	margin-top: 2px;
+	max-width: 600px;
+	transform: translateX(-50%);
+	animation: 1s 4.1s fade forwards;
+}
+.title-screen .start{
+	margin-top: 20px;
+	animation: 1s linear 5.1s fade infinite alternate forwards;
 }
