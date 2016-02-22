@@ -103,7 +103,8 @@ var App = Jesm.createClass({
 			background: this.params.mainCircleColor,
 			textColor: this.params.mainCircleTextColor,
 			textFontSize: this.params.mainCircleTextFontSize,
-			textFontFamily: this.params.mainCircleTextFontFamily
+			textFontFamily: this.params.mainCircleTextFontFamily,
+			counterColor: this.params.mainCircleCounterColor
 		});
 		this.mainCircle.processClick = this.createProjectile.bind(this);
 		this.mainCircle.modifyRadius(this.params.mainCircleRadius, 1);
@@ -168,10 +169,10 @@ var App = Jesm.createClass({
 	},
 
 	startCurrentLevel: function(){
-		this.levelCounter = this.currentLevel.counterDuration;
-		this.mainCircle.setText(this.levelCounter);
 		this.projectileQuantityLeft = this.currentLevel.targetQuantity;
-		this.counterIntervalRef = setInterval(this.updateCounter.bind(this), 1000);
+		var duration = this.currentLevel.counterDuration;
+		this.mainCircle.initCounter(duration);
+		this.timeoutRef = setTimeout(this.throwProjectiles.bind(this), duration * 1000);
 	},
 
 	createProjectile: function(position){
@@ -188,15 +189,10 @@ var App = Jesm.createClass({
 			this.throwProjectiles();
 	},
 
-	updateCounter: function(){
-		this.mainCircle.setText(--this.levelCounter);
-		if(this.levelCounter <= 0)
-			this.throwProjectiles();
-	},
-
 	throwProjectiles: function(){
-		clearInterval(this.counterIntervalRef);
+		clearTimeout(this.timeoutRef);
 		this.projectileQuantityLeft = null;
+		this.mainCircle.resetCounter();
 
 		this.state = App.states.WAITING;
 		var center = this.mainCircle.getCenterAsArray();
@@ -284,6 +280,10 @@ App.getPointRadians = function(origin, currentPos, currentDistance){
 	return arr;
 }
 
+App.getTime = function(){
+	return + new Date();
+}
+
 var AppWorld = Jesm.createClass({
 
 	__construct: function(app, canvas, params){
@@ -299,7 +299,7 @@ var AppWorld = Jesm.createClass({
 		Jesm.addEvento(this._canvas, 'mousedown', this._processClick, this);
 
 		this.timestamp = {
-			now: + new Date()
+			now: App.getTime()
 		};
 
 		this.render();
@@ -341,7 +341,7 @@ var AppWorld = Jesm.createClass({
 	render: function(){
 		requestAnimationFrame(this.render.bind(this)); // Requests new frame
 
-		var now = + new Date();
+		var now = App.getTime();
 		this.timestamp.elapsedTime = now - this.timestamp.now;
 		this.timestamp.now = now;
 
@@ -358,7 +358,7 @@ var AppWorld = Jesm.createClass({
 			}
 
 			element._calculateModifiers(this.timestamp);
-			element.draw(this._ctxt);
+			element.draw(this._ctxt, this.timestamp);
 		}
 
 		if(this.app.state === App.states.WAITING)
@@ -380,7 +380,7 @@ var AppElement = Jesm.createClass({
 
 	// Modifiers related methods
 
-	startModifier: function(str, toValue, duration, callback){
+	startModifier: function(str, toValue, duration, callback, type){
 		var arr = str.split('.'),
 			currentValue = this._modifier(arr),
 			obj = {
@@ -395,14 +395,14 @@ var AppElement = Jesm.createClass({
 				tmpArr.push(len);
 				obj.list.push({
 					propArr: tmpArr,
-					easer: new Jesm.Easer(currentValue[len], toValue[len], duration).start()
+					easer: new Jesm.Easer(currentValue[len], toValue[len], duration, type).start()
 				});
 			}
 		}
 		else{
 			obj.list.push({
 				propArr: arr,
-				easer: new Jesm.Easer(currentValue, toValue, duration).start()
+				easer: new Jesm.Easer(currentValue, toValue, duration, type).start()
 			});
 		}
 
@@ -489,10 +489,21 @@ var AppElement = Jesm.createClass({
 		return obj[arr[index]];
 	},
 
+	stopModifier: function(str){
+		delete this._modifiers[str];
+	},
+
 	// Miscellaneous methods
 
 	removeFromCanvas: function(){
 		this._deleteInNextFrame = true;
+	},
+
+	drawCircle: function(ctxt, x, y, radius, background, startAngle, endAngle){
+		var path = new Path2D();
+		path.arc(x, y, radius, startAngle || 0, endAngle == null ? Math.PI * 2 : endAngle);
+		ctxt.fillStyle = Array.isArray(background) ? App.getAsColorString(background) : background;
+		ctxt.fill(path);
 	}
 
 });
@@ -541,10 +552,7 @@ var AppCircle = AppElement.extend({
 	},
 
 	draw: function(ctxt){
-		var path = new Path2D();
-		path.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-		ctxt.fillStyle = Array.isArray(this.background) ? App.getAsColorString(this.background) : this.background;
-		ctxt.fill(path);
+		this.drawCircle(ctxt, this.x, this.y, this.radius, this.background);
 	}
 
 });
@@ -561,29 +569,52 @@ var CentralCircle = AppCircle.extend({
 		this.textColor = obj.textColor;
 		this.textFontSize = obj.textFontSize;
 		this.textFontFamily = obj.textFontFamily;
+		this.counterColor = obj.counterColor;
 	},
 
 	modifyRadius: function(value, duration){
 		this.startModifier('radius', value, duration || 1);
 	},
 
-	setText: function(value){
-		this.counterValue = value;
+	initCounter: function(duration){
+		this.counterValue = duration;
+		this.startModifier('counterValue', 0, duration, null, 'linear');
+
+		this.counterAngle = Math.PI * 2;
+		this.startModifier('counterAngle', 0, duration, null, 'linear');
 	},
 
-	draw: function(ctxt){
+	resetCounter: function(){
+		this.stopModifier('counterValue');
+		this.startModifier('counterAngle', 0, .1, null, 'linear');
+		this.counterValue = null;
+	},
+
+	draw: function(ctxt, timestamp){
 		this._super.apply(this, arguments);
 
-		if(this.counterValue != null){
-			ctxt.fillStyle = this.textColor;
-			ctxt.font = this.textFontSize + 'px ' + this.textFontFamily;
-			ctxt.textBaseline = 'middle';
+		if(this.counterAngle){
+			ctxt.beginPath();
+			ctxt.moveTo(this.x, this.y);
+			ctxt.arc(this.x, this.y, this.radius, 0, this.counterAngle);
+			ctxt.closePath();
+			ctxt.fillStyle = this.counterColor;
+			ctxt.fill();
 
-			var str = this.counterValue,
-				metrics = ctxt.measureText(str);
-
-			ctxt.fillText(str, Math.round(this.x - metrics.width / 2), this.y);
+			this.drawCircle(ctxt, this.x, this.y, this.radius * .75, this.background);
 		}
+
+		if(this.counterValue)
+			this.drawText(ctxt, Math.ceil(this.counterValue));
+	},
+
+	drawText: function(ctxt, str){
+		ctxt.fillStyle = this.textColor;
+		ctxt.font = this.textFontSize + 'px ' + this.textFontFamily;
+		ctxt.textBaseline = 'middle';
+
+		var metrics = ctxt.measureText(str);
+		ctxt.fillText(str, Math.round(this.x - metrics.width / 2), this.y);
 	}
 
 });
