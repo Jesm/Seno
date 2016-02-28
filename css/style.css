@@ -27,7 +27,7 @@ main{
 	height: 100%;
 }
 body{
-	font-family: 'Lucida Console';
+	font-family: 'Lucida Console', Monospace;
 }
 main{
 	position: relative;

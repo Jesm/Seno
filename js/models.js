@@ -216,7 +216,7 @@ var App = Jesm.createClass({
 			}
 
 			if(projectile.isOutOfView()){
-				projectile.removeFromCanvas();
+				projectile.destroy();
 				this.projectiles.splice(len, 1);
 			}
 		}
@@ -625,6 +625,7 @@ var Projectile = AppCircle.extend({
 		this._super.apply(this, arguments);
 
 		this.radius = params.radius;
+		this.originalCoordinates = this.getCenterAsArray();
 	},
 
 	throwAway: function(coordinates, velocity){
@@ -633,6 +634,10 @@ var Projectile = AppCircle.extend({
 
 		this.pointRadians = App.getPointRadians(coordinates, center, distance);
 		this.velocity = velocity;
+
+		this.oppositePointRadians = this.pointRadians.slice();
+		for(var len = this.oppositePointRadians.length; len--;)
+			this.oppositePointRadians[len] = -this.oppositePointRadians[len];
 
 		this.startPerpetualModifier('x', this.moveXAxis);
 		this.startPerpetualModifier('y', this.moveYAxis);
@@ -674,6 +679,31 @@ var Projectile = AppCircle.extend({
 
 	moveAxis: function(timestamp, value, index){
 		return value + this.pointRadians[index] * this.velocity * timestamp.elapsedTime;
+	},
+
+	draw: function(ctxt){
+		this._super.apply(this, arguments);
+
+		if(this.oppositePointRadians)
+			this.drawTrail(ctxt);
+	},
+
+	drawTrail: function(ctxt){
+		var distance = App.distanceOfPoints(this.getCenterAsArray(), this.originalCoordinates),
+			num = Math.min(Math.floor(distance / this.radius), 10);
+
+		for(var x = 1; x <= num; x++){
+			var posX = this.x + x * this.oppositePointRadians[0] * this.radius,
+				posY = this.y + x * this.oppositePointRadians[1] * this.radius,
+				bg = this.background.slice();
+
+			bg[3] = (num - x + 1) / (num + 2);
+			this.drawCircle(ctxt, posX, posY, this.radius, bg);
+		}
+	},
+
+	destroy: function(){
+		setTimeout(this.removeFromCanvas.bind(this), 1000);
 	}
 
 });
