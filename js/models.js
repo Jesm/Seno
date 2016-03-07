@@ -93,7 +93,9 @@ var App = Jesm.createClass({
 			'backgroundColor',
 			'mainCircleColor',
 			'mainCircleTextColor',
-			'mainCircleCounterColor'
+			'mainCircleCounterColor',
+			'targetColor',
+			'projectileColor'
 		];
 
 		for(var x = 0, len = keys.length; x < len; x++){
@@ -184,7 +186,8 @@ var App = Jesm.createClass({
 
 		var target = new Target(this.world, pos[0], pos[1], {
 			pointRadians: pointRadians,
-			radius: radius
+			radius: radius,
+			background: this.params.targetColor
 		});
 		this.targets.push(target);
 	},
@@ -201,7 +204,8 @@ var App = Jesm.createClass({
 			return;
 
 		var projectile = new Projectile(this.world, position[0], position[1], {
-			radius: this.currentLevel.projectileRadius
+			radius: this.currentLevel.projectileRadius,
+			background: this.params.projectileColor
 		});
 		this.projectiles.push(projectile);
 
@@ -344,7 +348,7 @@ var AppWorld = Jesm.createClass({
 
 		this._canvas = canvas;
 		this._ctxt = canvas.getContext('2d');
-		this.background = params.background;
+		this.background = params.background.slice();
 	},
 
 	start: function(){
@@ -568,7 +572,7 @@ var AppCircle = AppElement.extend({
 		this.x = x || 0;
 		this.y = y || 0;
 		this.radius = 5;
-		this.background = [255, 255, 255, 1];
+		this.background = App.decodeColor('#FFF');
 	},
 
 	// Geometric methods
@@ -678,6 +682,7 @@ var Projectile = AppCircle.extend({
 
 		this.radius = params.radius;
 		this.originalCoordinates = this.getCenterAsArray();
+		this.background = params.background.slice();
 	},
 
 	throwAway: function(coordinates, velocity){
@@ -766,7 +771,7 @@ var Target = AppCircle.extend({
 		this._super.apply(this, arguments);
 
 		this.radius = 0;
-		this.background = [255, 255, 255, 1];
+		this.background = params.background.slice();
 		this.startModifier('radius', params.radius, .5);
 	},
 
@@ -779,7 +784,9 @@ var Target = AppCircle.extend({
 
 	destroy: function(radius){
 		this.startModifier('radius', radius, .3);
-		this.startModifier('background', [255, 255, 255, 0], .3, this.removeFromCanvas);
+		var cloneArr = this.background.slice();
+		cloneArr[3] = 0;
+		this.startModifier('background', cloneArr, .3, this.removeFromCanvas);
 	}
 
 });
