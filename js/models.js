@@ -69,18 +69,39 @@ var App = Jesm.createClass({
 	},
 
 	convertParams: function(params){
-		var strs = [
+		var obj = {};
+		for(var key in params)
+			obj[key] = params[key];
+
+
+		var keys = [
 				'projectileVelocity',
 				'mainCircleRadius',
 				'targetRadius',
 				'projectileRadius',
 				'mainCircleTextFontSize'
 			],
-			obj = {},
 			minorSize = Math.min.apply(Math, this.canvasSize);
 
-		for(var key in params)
-			obj[key] = strs.indexOf(key) > -1 ? params[key] * minorSize : params[key];
+		for(var x = 0, len = keys.length; x < len; x++){
+			var key = keys[x];
+			if(key in obj)
+				obj[key] *= minorSize;
+		}
+
+		var keys = [
+			'backgroundColor',
+			'mainCircleColor',
+			'mainCircleTextColor',
+			'mainCircleCounterColor'
+		];
+
+		for(var x = 0, len = keys.length; x < len; x++){
+			var key = keys[x];
+			if(key in obj)
+				obj[key] = App.decodeColor(obj[key]);
+		}
+
 		return obj;
 	},
 
@@ -250,6 +271,37 @@ App.states = {
 	WAITING: 3
 };
 
+App.decodeColor = function(str){
+	if(Array.isArray(str))
+		return str;
+
+	var arr, matches;
+
+	if(matches = str.match(/^#((?:[0-9a-f]{3}){1,2})$/i)){
+		str = matches[1];
+
+		if(str.length === 3)
+			str = str.replace(/\w/g, '$&$&');
+
+		arr = str.match(/\w{2}/g);
+		for(var len = arr.length; len--;)
+			arr[len] = parseInt(arr[len], 16);
+
+		arr.push(1);
+	}
+	else if(matches = str.match(/^rgba?\((\d{1,3}),\s?(\d{1,3}),\s?(\d{1,3})(?:,\s(0|0?\.\d+|1))?\)$/i)){
+		arr = matches.slice(1);
+
+		for(var len = arr.length; len--;)
+			arr[len] = parseFloat(arr[len]);
+
+		if(isNaN(arr[3]))
+			arr[3] = 1;
+	}
+
+	return arr;
+};
+
 App.getAsColorString = function(arr){
 	arr = arr.slice();
 	for(var len = arr.length; len--;)
@@ -345,7 +397,7 @@ var AppWorld = Jesm.createClass({
 		this.timestamp.elapsedTime = now - this.timestamp.now;
 		this.timestamp.now = now;
 
-		this._ctxt.fillStyle = this.background;
+		this._ctxt.fillStyle = App.getAsColorString(this.background);
 		this._ctxt.fillRect(0, 0, this._canvas.width, this._canvas.height);
 		this.elements.sort(this._sortElements);
 
@@ -502,7 +554,7 @@ var AppElement = Jesm.createClass({
 	drawCircle: function(ctxt, x, y, radius, background, startAngle, endAngle){
 		var path = new Path2D();
 		path.arc(x, y, radius, startAngle || 0, endAngle == null ? Math.PI * 2 : endAngle);
-		ctxt.fillStyle = Array.isArray(background) ? App.getAsColorString(background) : background;
+		ctxt.fillStyle = App.getAsColorString(background);
 		ctxt.fill(path);
 	}
 
@@ -598,7 +650,7 @@ var CentralCircle = AppCircle.extend({
 			ctxt.moveTo(this.x, this.y);
 			ctxt.arc(this.x, this.y, this.radius, 0, this.counterAngle);
 			ctxt.closePath();
-			ctxt.fillStyle = this.counterColor;
+			ctxt.fillStyle = App.getAsColorString(this.counterColor);
 			ctxt.fill();
 
 			this.drawCircle(ctxt, this.x, this.y, this.radius * .75, this.background);
@@ -609,7 +661,7 @@ var CentralCircle = AppCircle.extend({
 	},
 
 	drawText: function(ctxt, str){
-		ctxt.fillStyle = this.textColor;
+		ctxt.fillStyle = App.getAsColorString(this.textColor);
 		ctxt.font = this.textFontSize + 'px ' + this.textFontFamily;
 		ctxt.textBaseline = 'middle';
 
