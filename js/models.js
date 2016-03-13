@@ -35,9 +35,8 @@ var App = Jesm.createClass({
 
 		this.params = this.convertParams(params);
 
-		this.world = new AppWorld(this, this.html.canvas, {
-			background: this.params.backgroundColor
-		});
+		this.world = new AppWorld(this, this.html.canvas);
+		new AppBg(this.world, this.params.backgroundColor);
 		this.world.start();
 	},
 
@@ -120,8 +119,8 @@ var App = Jesm.createClass({
 	},
 
 	createMainCircle: function(){
-		var size = this.canvasSize;
-		this.mainCircle = new CentralCircle(this.world, size[0] / 2, size[1] / 2, {
+		var center = this.world.getCenterAsArray();
+		this.mainCircle = new CentralCircle(this.world, center[0], center[1], {
 			radius: 0,
 			background: this.params.mainCircleColor,
 			textColor: this.params.mainCircleTextColor,
@@ -137,10 +136,15 @@ var App = Jesm.createClass({
 		this.currentLevel = level;
 		this.projectileQuantityLeft = null;
 
-		if(level.number > 1){
-			// this.mainCircle.setText('Level ' + level.number);
-			this.mainCircle.modifyRadius(level.mainCircleRadius, .5);
-		}
+		var center = this.world.getCenterAsArray(),
+			str = 'Level ' + level.number;
+
+		new LevelText(this.world, str, center[0], center[1], level.mainCircleRadius, Math.PI / 16, {
+			textColor: this.params.mainCircleColor,
+			textFontSize: this.params.mainCircleTextFontSize / 3,
+			textFontFamily: this.params.mainCircleTextFontFamily
+		});
+		this.mainCircle.modifyRadius(level.mainCircleRadius, .5);
 
 		this.generateTargets(level);
 
@@ -275,6 +279,8 @@ App.states = {
 	WAITING: 3
 };
 
+App.radiansOpArr = ['cos', 'sin'];
+
 App.decodeColor = function(str){
 	if(Array.isArray(str))
 		return str;
@@ -321,11 +327,10 @@ App.distanceOfPoints = function(pos1, pos2){
 };
 
 App.getPointRadians = function(origin, currentPos, currentDistance){
-	var strs = ['cos', 'sin'],
-		arr = [];
+	var arr = [];
 
 	for(var len = origin.length; len--;){
-		var name = strs[len],
+		var name = App.radiansOpArr[len],
 			distance = currentPos[len] - origin[len],
 			value = currentDistance ? distance / currentDistance : len,
 			radians = Math['a' + name](value);
@@ -348,7 +353,7 @@ var AppWorld = Jesm.createClass({
 
 		this._canvas = canvas;
 		this._ctxt = canvas.getContext('2d');
-		this.background = params.background.slice();
+		this._ctxt.save();
 	},
 
 	start: function(){
@@ -394,6 +399,13 @@ var AppWorld = Jesm.createClass({
 		return [this._canvas.width, this._canvas.height];
 	},
 
+	getCenterAsArray: function(){
+		var arr = this.getSize();
+		for(var len = arr.length; len--;)
+			arr[len] /= 2;
+		return arr;
+	},
+
 	render: function(){
 		requestAnimationFrame(this.render.bind(this)); // Requests new frame
 
@@ -401,10 +413,10 @@ var AppWorld = Jesm.createClass({
 		this.timestamp.elapsedTime = now - this.timestamp.now;
 		this.timestamp.now = now;
 
-		this._ctxt.fillStyle = App.getAsColorString(this.background);
-		this._ctxt.fillRect(0, 0, this._canvas.width, this._canvas.height);
-		this.elements.sort(this._sortElements);
+		var size = this.getSize();
+		this._ctxt.clearRect(0, 0, size[0], size[1]);
 
+		this.elements.sort(this._sortElements);
 		for(var len = this.elements.length; len--;){
 			var element = this.elements[len];
 
@@ -414,6 +426,7 @@ var AppWorld = Jesm.createClass({
 			}
 
 			element._calculateModifiers(this.timestamp);
+			this._ctxt.restore();
 			element.draw(this._ctxt, this.timestamp);
 		}
 
@@ -560,6 +573,22 @@ var AppElement = Jesm.createClass({
 		path.arc(x, y, radius, startAngle || 0, endAngle == null ? Math.PI * 2 : endAngle);
 		ctxt.fillStyle = App.getAsColorString(background);
 		ctxt.fill(path);
+	}
+
+});
+
+var AppBg = AppElement.extend({
+
+	__construct: function(world, background){
+		this._super(world);
+		this.background = background.slice();
+		this.zIndex = 0;
+	},
+
+	draw: function(ctxt){
+		ctxt.fillStyle = App.getAsColorString(this.background);
+		var size = this.world.getSize();
+		ctxt.fillRect(0, 0, size[0], size[1]);
 	}
 
 });
@@ -787,6 +816,88 @@ var Target = AppCircle.extend({
 		var cloneArr = this.background.slice();
 		cloneArr[3] = 0;
 		this.startModifier('background', cloneArr, .3, this.removeFromCanvas);
+	}
+
+});
+
+var CircularText = AppElement.extend({
+
+	__construct: function(world, str, x, y, radius, radians, params){
+		this._super(world);
+
+		this.text = str;
+		this.x = x;
+		this.y = y;
+		this.radius = radius + params.textFontSize / 2;
+		this.angle = radians;
+
+		this.textColor = params.textColor.slice();
+		this.textFontSize = params.textFontSize;
+		this.textFontFamily = params.textFontFamily;
+		this.textBaseline = params.textBaseline || 'middle';
+	},
+
+	draw: function(ctxt){
+		ctxt.fillStyle = App.getAsColorString(this.textColor);
+		ctxt.font = this.textFontSize + 'px ' + this.textFontFamily;
+		ctxt.textBaseline = this.textBaseline;
+
+		var nextAngle = this.angle;
+
+		for(var x = 0, len = this.text.length; x < len; x++){
+			var character = this.text[x],
+				metrics = ctxt.measureText(character),
+				radiansIncrement = metrics.width / (2 * this.radius);
+
+			if(x)
+				nextAngle += radiansIncrement;
+
+			var currentAngle = nextAngle,
+				center = [this.x, this.y],
+				coord = [];
+
+			nextAngle += radiansIncrement;
+
+			for(var len1 = center.length; len1--;){
+				var num = len1 ? 1 : -1;
+				coord[len1] = center[len1] + num * Math[App.radiansOpArr[len1]](currentAngle) * this.radius;
+			}
+
+			ctxt.save();
+			ctxt.translate(coord[0], coord[1]);
+			ctxt.rotate(Math.PI / 2 - currentAngle);
+			ctxt.textAlign = 'center';
+			ctxt.fillText(character, 0, 0);
+			ctxt.restore();
+		}
+	},
+
+});
+
+var LevelText = CircularText.extend({
+
+	__construct: function(){
+		this._super.apply(this, arguments);
+
+		var duration = 2,
+			fadeDuration = duration / 2;
+
+		var colorBkp = this.textColor.slice();
+		this.textColor[3] = 0;
+		this.zIndex = 2;
+
+		this.startModifier('angle', this.angle + Math.PI / 16, duration);
+		this.startModifier('textColor', colorBkp, fadeDuration / 2, function(){
+			setTimeout((function(){
+				this.fadeOut(fadeDuration / 2);
+			}).bind(this), duration - fadeDuration);
+		});
+	},
+
+	fadeOut: function(duration){
+		var colorBkp = this.textColor.slice();
+		colorBkp[3] = 0;
+		this.startModifier('textColor', colorBkp, duration, this.removeFromCanvas);
 	}
 
 });
