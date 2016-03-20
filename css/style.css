@@ -81,11 +81,16 @@ canvas{
 	left: 50%;
 	top: 50%;
 	margin-top: 2px;
-	max-width: 600px;
+	max-width: 650px;
 	transform: translateX(-50%);
 	animation: 1s 4.1s fade forwards;
 }
 .title-screen .start{
 	margin-top: 20px;
 	animation: 1s linear 5.1s fade infinite alternate forwards;
+}
+.title-screen .version{
+	position: absolute;
+	right: 10px;
+	bottom: 10px;
 }
