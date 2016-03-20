@@ -115,6 +115,13 @@ var App = Jesm.createClass({
 
 		level.number = this._levelCount;
 
+		var maxLevel = 50,
+			decrease = 1 - .9 * (Math.min(level.number, maxLevel) - 1) / maxLevel;
+
+		level.mainCircleRadius = this.params.mainCircleRadius * decrease;
+		level.mainCircleTextFontSize = this.params.mainCircleTextFontSize * decrease;
+		level.targetRadius = this.params.targetRadius * decrease;
+
 		return level;
 	},
 
@@ -139,12 +146,13 @@ var App = Jesm.createClass({
 		var center = this.world.getCenterAsArray(),
 			str = 'Level ' + level.number;
 
-		new LevelText(this.world, str, center[0], center[1], level.mainCircleRadius, Math.PI / 16, {
+		new LevelText(this.world, str, center[0], center[1], Math.max(this.mainCircle.radius, level.mainCircleRadius), Math.PI / 16, {
 			textColor: this.params.mainCircleColor,
 			textFontSize: this.params.mainCircleTextFontSize / 3,
 			textFontFamily: this.params.mainCircleTextFontFamily
 		});
 		this.mainCircle.modifyRadius(level.mainCircleRadius, .5);
+		this.mainCircle.textFontSize = level.mainCircleTextFontSize;
 
 		this.generateTargets(level);
 
