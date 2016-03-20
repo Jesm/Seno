@@ -93,6 +93,7 @@ var App = Jesm.createClass({
 			'mainCircleColor',
 			'mainCircleTextColor',
 			'mainCircleCounterColor',
+			'explosionColor',
 			'targetColor',
 			'projectileColor'
 		];
@@ -232,10 +233,20 @@ var App = Jesm.createClass({
 		this.mainCircle.resetCounter();
 
 		this.state = App.states.WAITING;
-		var center = this.mainCircle.getCenterAsArray();
+		var center = this.mainCircle.getCenterAsArray(),
+			duration = .2;
+
+		new Explosion(this.world, center[0], center[1], this.mainCircle.radius, this.params.explosionColor, duration);
+
 		for(var len = this.projectiles.length; len--;){
-			var projectile = this.projectiles[len];
-			projectile.throwAway(center, this.currentLevel.projectileVelocity);
+			(function(self, index){
+				var projectile = self.projectiles[index],
+					delay = duration * 1000 * projectile.distanceToCircle(self.mainCircle) / self.mainCircle.radius;
+
+				setTimeout(function(){
+					projectile.throwAway(center, self.currentLevel.projectileVelocity);
+				}, delay);
+			})(this, len);
 			// var hitlist = projectile.getHitlistOf(center, this.targets);
 		}
 	},
@@ -824,6 +835,25 @@ var Target = AppCircle.extend({
 		var cloneArr = this.background.slice();
 		cloneArr[3] = 0;
 		this.startModifier('background', cloneArr, .3, this.removeFromCanvas);
+	}
+
+});
+
+var Explosion = AppCircle.extend({
+
+	__construct: function(world, x, y, radius, background, duration){
+		this._super.apply(this, arguments);
+
+		this.radius = 0;
+		this.background = background.slice();
+		this.duration = duration;
+		this.startModifier('radius', radius, this.duration, this.fadeDestroy);
+	},
+
+	fadeDestroy: function(){
+		var colorBkp = this.background.slice();
+		colorBkp[3] = 0;
+		this.startModifier('background', colorBkp, this.duration * 3, this.removeFromCanvas);
 	}
 
 });
